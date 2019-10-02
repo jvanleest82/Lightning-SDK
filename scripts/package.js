@@ -1,8 +1,8 @@
-const child_process = require("child_process");
 const rollup = require('rollup');
-const fs = require("fs");
-const babel = require("@babel/core");
+const {terser} = require("rollup-plugin-terser");
+const babel = require("rollup-plugin-babel");
 const babelPresetEnv = require("@babel/preset-env");
+const fs = require("fs");
 const shell = require("shelljs");
 const targz = require("targz");
 
@@ -20,7 +20,6 @@ function release(preventLogging){
             .then(() => copyAppFiles())
             .then(() => copyAppSrc())
             .then(() => bundleApp())
-            .then(() => babelify())
             .then(() => pack())
             .then(()=>{
                 info.absolutePath = process.cwd() + "/dist/" + info.mpkg;
@@ -104,52 +103,35 @@ function copyAppSrc() {
 }
 
 function bundleApp() {
-    return rollup.rollup({input: "./src/App.js"}).then(bundle => {
+    const input = "./src/App.js";
+    const name = "APP_" + info.data.identifier.replace(/[^0-9a-zA-Z_$]/g, "_");
 
-        info.qualifier = "APP_" + info.data.identifier.replace(/[^0-9a-zA-Z_$]/g, "_");
-        return bundle.generate({format: 'iife', name: info.qualifier}).then(content => {
-            info.bundled = content.code;
-
-            info.bundleLocation = "./dist/" + info.dest + "/appBundle.js";
-            fs.writeFileSync(info.bundleLocation, info.bundled);
-        });
-    });
+    return Promise.all([
+        createBundle({
+            name, input,
+            output: `./dist/${info.dest}/appBundle.js`,
+            plugins:[terser({keep_fnames: true})]
+        }),
+        createBundle({
+            name, input,
+            output: `./dist/${info.dest}/appBundle.es5.js`,
+            plugins:[babel({presets: [babelPresetEnv]}), terser({keep_fnames: true})],
+        })
+    ]);
 }
 
-function babelify() {
-    return new Promise((resolve, reject) => {
-        babel.transform(info.bundled, {presets: [babelPresetEnv]}, function(err, result) {
-            if (err) {
-                return reject(err);
-            }
+async function createBundle({input, output, plugins=[], name}){
+    const bundle = await rollup.rollup({input, plugins});
+    const content = await bundle.generate({format: 'iife', name});
 
-            info.babelified = result.code;
+    fs.writeFileSync(output, content.code);
 
-            info.bundleLocation = "./dist/" + info.dest + "/appBundle.es5.js";
-            fs.writeFileSync(info.bundleLocation, info.babelified);
-
-            resolve();
-        });
-    });
+    return "done";
 }
 
 function pack() {
     info.mpkg = info.data.identifier + ".mpkg.tgz";
     return tar(`./dist/${info.dest}`,`./dist/${info.dest}.tgz`);
-}
-
-function exec(command, opts) {
-    return new Promise((resolve, reject) => {
-        log("EXECUTE: " + command);
-        child_process.exec(command, opts, function(err, stdout, stderr) {
-            if (err) {
-                return reject(err);
-            }
-            log(stdout);
-            console.warn(stderr);
-            resolve(stdout);
-        });
-    });
 }
 
 function execShell(cb){

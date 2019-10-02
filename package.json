@@ -10,6 +10,8 @@
     "babel-preset-env": "^1.7.0",
     "form-data": "^2.3.3",
     "rollup": "^0.67.0",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-terser": "^5.1.2",
     "shelljs": "^0.8.3",
     "targz": "^1.0.1",
     "wpe-lightning": "https://github.com/WebPlatformForEmbedded/Lightning.git"
