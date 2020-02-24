@@ -52,16 +52,23 @@ export default function(App, appData, platformSettings) {
 
     _setup() {
       Promise.all([
-        this.loadFonts((App.config && App.config.fonts) || (App.getFonts && App.getFonts()) || []),
+        this.loadFonts(
+          (App.config && App.config.fonts && App.config.fonts()) ||
+            (App.getFonts && App.getFonts()) ||
+            []
+        ),
         Locale.load((App.config && App.config.locale) || (App.getLocale && App.getLocale())),
       ])
         .then(() => {
           Metrics.app.loaded()
+
           this.childList.a({
-            ref: 'App',
-            type: App,
-            appData,
-            forceZIndexContext: !!platformSettings.showVersion,
+            ...(App.type ? App : { type: App }),
+            ...{
+              ref: 'App',
+              appData,
+              forceZIndexContext: !!platformSettings.showVersion,
+            },
           })
 
           if (platformSettings.showVersion) {
